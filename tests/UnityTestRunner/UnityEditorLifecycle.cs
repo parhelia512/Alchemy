@@ -14,11 +14,9 @@ internal sealed class UnityEditorLifecycle(UnityCli unityCli)
         Action<string> writeProgress,
         CancellationToken cancellationToken)
     {
-        var connectedEditor = project.MajorVersion >= 6000
-            ? await unityCli.FindConnectedEditorAsync(
-                project,
-                cancellationToken)
-            : null;
+        var connectedEditor = await unityCli.FindConnectedEditorAsync(
+            project,
+            cancellationToken);
         if (connectedEditor is not null)
         {
             writeProgress(

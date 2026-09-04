@@ -103,42 +103,19 @@ internal static class UnityTest
 
         var reportPath = Path.Combine(context.LogDirectory, $"{mode}.xml");
         var editorLogPath = Path.Combine(context.LogDirectory, $"{mode}.log");
-        var cliLogPath = project.MajorVersion >= 6000
-            ? string.Empty
-            : Path.Combine(context.LogDirectory, $"{mode}.cli.log");
 
         WriteProgress(project, $"{mode}: running...");
 
         try
         {
-            if (project.MajorVersion >= 6000)
-            {
-                await RunUnityProcessModeAsync(
-                    project,
-                    context,
-                    mode,
-                    reportPath,
-                    editorLogPath,
-                    cancellationToken);
-                ValidateReport(project, mode, reportPath);
-                return;
-            }
-
-            var result = await RunUnityAsync(
+            await RunUnityProcessModeAsync(
                 project,
-                context.EditorPath,
+                context,
                 mode,
                 reportPath,
                 editorLogPath,
                 cancellationToken);
             ValidateReport(project, mode, reportPath);
-            if (result.ExitCode != 0)
-            {
-                throw new UnityExecutionException(
-                    $"Unity {project.EditorVersion} {mode} exited with code " +
-                    $"{result.ExitCode} despite producing a passing report." +
-                    FormatProcessDiagnostic(result));
-            }
         }
         finally
         {
@@ -146,10 +123,9 @@ internal static class UnityTest
             {
                 context.RefreshLogPath,
                 editorLogPath,
-                cliLogPath,
                 reportPath,
             };
-            WriteLogDiagnostics(project, [editorLogPath, cliLogPath]);
+            WriteLogDiagnostics(project, [editorLogPath]);
             AttachArtifacts(artifacts);
         }
     }
@@ -289,47 +265,6 @@ internal static class UnityTest
         }
     }
 
-    private static async Task<ProcessResult> RunUnityAsync(
-        UnityProject project,
-        string editorPath,
-        TestMode mode,
-        string reportPath,
-        string editorLogPath,
-        CancellationToken cancellationToken)
-    {
-        var fileName = UnityEditorLifecycle.GetEditorExecutable(editorPath);
-        if (!File.Exists(fileName))
-        {
-            throw new UnityUnavailableException(
-                $"The installed Unity editor executable does not exist: {fileName}");
-        }
-
-        var arguments = BuildBatchModeArguments(
-            project,
-            mode,
-            reportPath,
-            editorLogPath);
-        var workingDirectory = project.ProjectPath;
-
-        try
-        {
-            var result = await ProcessRunner.RunAsync(
-                new ProcessSpec(
-                    fileName,
-                    arguments,
-                    workingDirectory,
-                    TerminateDescendantsOnExit: true),
-                cancellationToken);
-            return result;
-        }
-        catch (ProcessExecutionException exception)
-        {
-            throw new UnityExecutionException(
-                $"Could not start Unity {project.EditorVersion} for {mode}.",
-                exception);
-        }
-    }
-
     private static IReadOnlyList<string> BuildLibraryWarmupArguments(
         UnityProject project,
         string logPath)
@@ -346,31 +281,6 @@ internal static class UnityTest
             "-logFile",
             logPath,
         ];
-    }
-
-    private static IReadOnlyList<string> BuildBatchModeArguments(
-        UnityProject project,
-        TestMode mode,
-        string reportPath,
-        string logPath)
-    {
-        var command = mode == TestMode.EditMode
-            ? "Alchemy.Tests.TestCommands.RunAllEditModeTests"
-            : "Alchemy.Tests.TestCommands.RunAllPlayModeTests";
-        var arguments = CreateTestArguments(mode);
-        arguments.AddRange(
-        [
-            "-projectPath",
-            ".",
-            "-executeMethod",
-            command,
-            "-testResults",
-            reportPath,
-            "--auto-quit",
-            "-logFile",
-            logPath,
-        ]);
-        return arguments;
     }
 
     private static List<string> CreateTestArguments(TestMode mode)
@@ -418,16 +328,6 @@ internal static class UnityTest
                $"{summary.Failed} failed, " +
                $"{summary.Inconclusive} inconclusive, " +
                $"{summary.Skipped} skipped";
-    }
-
-    private static string FormatProcessDiagnostic(ProcessResult result)
-    {
-        var diagnostic = string.IsNullOrWhiteSpace(result.StandardError)
-            ? result.StandardOutput
-            : result.StandardError;
-        return string.IsNullOrWhiteSpace(diagnostic)
-            ? string.Empty
-            : $"{Environment.NewLine}{diagnostic.Trim()}";
     }
 
     private static void WriteProgress(UnityProject project, string message)
