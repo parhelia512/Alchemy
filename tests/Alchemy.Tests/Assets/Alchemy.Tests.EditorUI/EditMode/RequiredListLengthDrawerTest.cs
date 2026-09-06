@@ -176,15 +176,38 @@ namespace Alchemy.Tests.EditorUI.EditMode
             var hostA = CreateHost("OwnerA");
             var hostB = CreateHost("OwnerB");
             hostA.exact = new[] { 1 };
-            hostB.exact = Array.Empty<int>();
+            hostB.exact = new[] { 1, 2 };
 
             using var serializedObject = ObjectReferenceValidationTestHelper.Multi(hostA, hostB);
             var exact = serializedObject.FindProperty("exact");
+            Assert.That(exact.arraySize, Is.EqualTo(1));
             Assert.That(
                 RequiredListLengthValidation.IsSerializedPropertyValid(exact, 1, 1),
                 Is.False);
             Assert.That(hostA.exact, Has.Length.EqualTo(1));
-            Assert.That(hostB.exact, Is.Empty);
+            Assert.That(hostB.exact, Has.Length.EqualTo(2));
+        }
+
+        [Test]
+        public void Validation_MultiObjectLargeArraysDoNotTrustCappedArraySize()
+        {
+            var hostA = CreateHost("OwnerA");
+            var hostB = CreateHost("OwnerB");
+            hostA.exact = new int[100];
+            hostB.exact = new int[100];
+
+            using var serializedObject = ObjectReferenceValidationTestHelper.Multi(hostA, hostB);
+            var exact = serializedObject.FindProperty("exact");
+            Assert.That(exact.arraySize, Is.EqualTo(0));
+            Assert.That(exact.minArraySize, Is.EqualTo(100));
+            Assert.That(
+                RequiredListLengthValidation.IsSerializedPropertyValid(exact, 100, 100),
+                Is.True);
+            Assert.That(
+                RequiredListLengthValidation.IsSerializedPropertyValid(exact, null, 50),
+                Is.False);
+            Assert.That(hostA.exact, Has.Length.EqualTo(100));
+            Assert.That(hostB.exact, Has.Length.EqualTo(100));
         }
 
         [UnityTest]

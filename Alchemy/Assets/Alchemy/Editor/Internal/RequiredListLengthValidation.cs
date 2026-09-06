@@ -40,7 +40,8 @@ namespace Alchemy.Editor
 
             try
             {
-                if (!SerializedObjectReferenceValidation.ArraySizesDiffer(property))
+                if (!SerializedObjectReferenceValidation.ArraySizesDiffer(property) &&
+                    !IsMultiEditArraySizeCapped(property, serializedObject))
                 {
                     return IsValid(sharedSize, min, max);
                 }
@@ -50,6 +51,41 @@ namespace Alchemy.Editor
                 return IsValid(sharedSize, min, max);
             }
 
+            return AreIsolatedSizesValid(serializedObject, path, min, max, sharedSize);
+        }
+
+        static bool IsMultiEditArraySizeCapped(
+            SerializedProperty property,
+            SerializedObject serializedObject)
+        {
+            try
+            {
+                var targets = serializedObject.targetObjects;
+                if (targets == null || targets.Length <= 1)
+                {
+                    return false;
+                }
+
+                if (property.arraySize != 0)
+                {
+                    return false;
+                }
+
+                return property.minArraySize > serializedObject.maxArraySizeForMultiEditing;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        static bool AreIsolatedSizesValid(
+            SerializedObject serializedObject,
+            string path,
+            int? min,
+            int? max,
+            int sharedSize)
+        {
             var targets = serializedObject.targetObjects;
             if (targets == null || targets.Length <= 1)
             {
