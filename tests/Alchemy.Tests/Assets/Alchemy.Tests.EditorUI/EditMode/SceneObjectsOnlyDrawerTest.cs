@@ -45,7 +45,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_AcceptsSceneGameObjectAndComponent()
         {
             var host = CreateHost();
-            var other = Create("Other");
+            var other = helper.Create("Other");
 
             Assert.That(SceneObjectsOnlyValidation.IsValid(host.gameObject), Is.True);
             Assert.That(SceneObjectsOnlyValidation.IsValid(host), Is.True);
@@ -57,8 +57,8 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_RejectsAssetsAndNonSceneObjects()
         {
             var host = CreateHost();
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
-            var transient = Track(ScriptableObject.CreateInstance<SceneObjectsOnlyScriptable>());
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
+            var transient = helper.Track(ScriptableObject.CreateInstance<SceneObjectsOnlyScriptable>());
 
             Assert.That(SceneObjectsOnlyValidation.IsValid(Texture2D.whiteTexture), Is.False);
             Assert.That(SceneObjectsOnlyValidation.IsValid(prefab), Is.False);
@@ -70,7 +70,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_ResolvesNestedFields()
         {
             var host = CreateHost();
-            host.nested.sceneObject = Create("Nested");
+            host.nested.sceneObject = helper.Create("Nested");
 
             using var serializedObject = new SerializedObject(host);
             var property = serializedObject.FindProperty("nested.sceneObject");
@@ -78,7 +78,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
             Assert.That(property, Is.Not.Null);
             Assert.That(SceneObjectsOnlyValidation.IsPropertyValid(property), Is.True);
 
-            host.nested.sceneObject = CreatePrefabAsset(Create("PrefabSource"));
+            host.nested.sceneObject = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
             serializedObject.Update();
             Assert.That(SceneObjectsOnlyValidation.IsPropertyValid(property), Is.False);
             Assert.That(host.nested.sceneObject, Is.Not.Null);
@@ -89,7 +89,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_ValidatesArrayElementsAndReportsUnsupportedUse()
         {
             var host = CreateHost();
-            host.sceneObjects = new[] { Create("A"), (GameObject)null };
+            host.sceneObjects = new[] { helper.Create("A"), (GameObject)null };
             host.unsupported = 1;
             host.texture = Texture2D.whiteTexture;
 
@@ -105,7 +105,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
             Assert.That(SceneObjectsOnlyValidation.IsPropertyValid(sceneObjects), Is.True);
             Assert.That(SceneObjectsOnlyValidation.IsPropertyValid(texture), Is.False);
 
-            host.sceneObjects[0] = CreatePrefabAsset(Create("PrefabSource"));
+            host.sceneObjects[0] = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
             serializedObject.Update();
             Assert.That(SceneObjectsOnlyValidation.IsPropertyValid(sceneObjects), Is.False);
             Assert.That(SceneObjectsOnlyValidation.IsSupportedProperty(unsupported), Is.False);
@@ -116,20 +116,20 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_MixedMultiObjectSelectionIsInvalidWhenAnyTargetFails()
         {
             var (host1, host2) = TwoHosts();
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
-            host1.sceneObject = Create("SceneA");
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
+            host1.sceneObject = helper.Create("SceneA");
             host2.sceneObject = prefab;
             host1.sceneObjects = new[] { host1.sceneObject };
             host2.sceneObjects = new[] { host2.sceneObject };
 
-            using var serializedObject = Multi(host1, host2);
+            using var serializedObject = ObjectReferenceValidationTestHelper.Multi(host1, host2);
             var sceneObject = serializedObject.FindProperty("sceneObject");
             var sceneObjects = serializedObject.FindProperty("sceneObjects");
 
             Assert.That(SceneObjectsOnlyValidation.IsSerializedPropertyValid(sceneObject), Is.False);
             Assert.That(SceneObjectsOnlyValidation.IsSerializedPropertyValid(sceneObjects), Is.False);
 
-            host2.sceneObject = Create("SceneB");
+            host2.sceneObject = helper.Create("SceneB");
             host2.sceneObjects = new[] { host2.sceneObject };
             serializedObject.Update();
             Assert.That(SceneObjectsOnlyValidation.IsSerializedPropertyValid(sceneObject), Is.True);
@@ -140,9 +140,9 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_PendingMultiObjectAssetMustBeInvalidForEveryTarget()
         {
             var (hostA, hostB) = TwoHosts();
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
 
-            using var serializedObject = Multi(hostA, hostB);
+            using var serializedObject = ObjectReferenceValidationTestHelper.Multi(hostA, hostB);
             var sceneObject = serializedObject.FindProperty("sceneObject");
             sceneObject.objectReferenceValue = prefab;
 
@@ -158,8 +158,8 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Validation_AcceptsValidPendingChangeWithoutApplying()
         {
             var host = CreateHost();
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
-            var scene = Create("Scene");
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
+            var scene = helper.Create("Scene");
             host.sceneObject = prefab;
             host.sceneObjects = new[] { prefab };
 
@@ -182,9 +182,9 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Validation_SupportsScriptableObjectTargets()
         {
-            var asset = Track(ScriptableObject.CreateInstance<SceneObjectsOnlyScriptable>());
-            var scene = Create("Scene");
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
+            var asset = helper.Track(ScriptableObject.CreateInstance<SceneObjectsOnlyScriptable>());
+            var scene = helper.Create("Scene");
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
             asset.sceneObject = scene;
 
             using var serializedObject = new SerializedObject(asset);
@@ -202,32 +202,32 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public IEnumerator Drawer_ShowsErrorHelpBoxWhilePreservingInvalidValue()
         {
             var host = CreateHost();
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
             host.sceneObject = prefab;
-            ShowInspector(host);
+            helper.ShowInspector(host);
             yield return null;
 
-            var helpBox = FindHelpBox(SceneObjectErrorMessage);
-            foreach (var wait in WaitUntilDisplay(helpBox, DisplayStyle.Flex))
+            var helpBox = helper.FindHelpBox(SceneObjectErrorMessage);
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(helpBox, DisplayStyle.Flex))
                 yield return wait;
             Assert.That(host.sceneObject, Is.SameAs(prefab));
 
-            var scene = Create("Scene");
+            var scene = helper.Create("Scene");
             var serializedObject = helper.Editor.serializedObject;
             serializedObject.FindProperty("sceneObject").objectReferenceValue = scene;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(host.sceneObject, Is.SameAs(scene));
-            foreach (var wait in WaitUntilDisplay(helpBox, DisplayStyle.None))
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(helpBox, DisplayStyle.None))
                 yield return wait;
 
-            var customHelpBox = FindHelpBox("Must be a scene object.");
-            foreach (var wait in WaitUntilDisplay(customHelpBox, DisplayStyle.None))
+            var customHelpBox = helper.FindHelpBox("Must be a scene object.");
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(customHelpBox, DisplayStyle.None))
                 yield return wait;
 
             serializedObject.FindProperty("sceneTransform").objectReferenceValue = prefab.transform;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(host.sceneTransform, Is.SameAs(prefab.transform));
-            foreach (var wait in WaitUntilDisplay(customHelpBox, DisplayStyle.Flex))
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(customHelpBox, DisplayStyle.Flex))
                 yield return wait;
 
             var unsupportedHelpBoxes = helper.InspectorRoot.Query<HelpBox>().ToList()
@@ -243,12 +243,12 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Drawer_ShowsErrorForMixedMultiObjectSelection()
         {
             var (host1, host2) = TwoHosts();
-            var prefab = CreatePrefabAsset(Create("PrefabSource"));
-            host1.sceneObject = Create("SceneA");
+            var prefab = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
+            host1.sceneObject = helper.Create("SceneA");
             host2.sceneObject = prefab;
-            ShowInspector(host1, host2);
+            helper.ShowInspector(host1, host2);
 
-            Assert.That(FindHelpBox(SceneObjectErrorMessage).style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(helper.FindHelpBox(SceneObjectErrorMessage).style.display.value, Is.EqualTo(DisplayStyle.Flex));
             Assert.That(host1.sceneObject, Is.Not.Null);
             Assert.That(host2.sceneObject, Is.SameAs(prefab));
         }
@@ -256,9 +256,9 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Drawer_ValidatesScriptableObjectTargetsInsteadOfUnsupported()
         {
-            var asset = Track(ScriptableObject.CreateInstance<SceneObjectsOnlyScriptable>());
-            asset.sceneObject = CreatePrefabAsset(Create("PrefabSource"));
-            CreateInspector(asset);
+            var asset = helper.Track(ScriptableObject.CreateInstance<SceneObjectsOnlyScriptable>());
+            asset.sceneObject = helper.CreatePrefabAsset(helper.Create("PrefabSource"));
+            helper.CreateInspector(asset);
 
             var helpBoxes = helper.InspectorRoot.Query<HelpBox>().ToList();
             Assert.That(helpBoxes.Any(box => box.messageType == HelpBoxMessageType.Warning), Is.False);
@@ -288,7 +288,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
                 Assert.That(SceneObjectsOnlyValidation.IsValid(asset), Is.False);
                 Assert.That(SceneObjectsOnlyValidation.IsValid(asset.GetComponent<SceneObjectsOnlyHost>()), Is.False);
 
-                var sceneInstance = Track(PrefabUtility.InstantiatePrefab(asset) as GameObject);
+                var sceneInstance = helper.Track(PrefabUtility.InstantiatePrefab(asset) as GameObject);
                 Assert.That(EditorUtility.IsPersistent(sceneInstance), Is.False);
                 Assert.That(SceneObjectsOnlyValidation.IsValid(sceneInstance), Is.True);
 
@@ -321,24 +321,5 @@ namespace Alchemy.Tests.EditorUI.EditMode
 
         (SceneObjectsOnlyHost hostA, SceneObjectsOnlyHost hostB) TwoHosts() =>
             (CreateHost("OwnerA"), CreateHost("OwnerB"));
-
-        GameObject Create(string name) => helper.Create(name);
-
-        GameObject CreatePrefabAsset(GameObject source) =>
-            helper.CreatePrefabAsset(source, "_AlchemySceneObjectsOnly");
-
-        T Track<T>(T obj) where T : UnityEngine.Object => helper.Track(obj);
-
-        static SerializedObject Multi(params UnityEngine.Object[] targets) =>
-            ObjectReferenceValidationTestHelper.Multi(targets);
-
-        void ShowInspector(params UnityEngine.Object[] targets) => helper.ShowInspector(targets);
-
-        void CreateInspector(params UnityEngine.Object[] targets) => helper.CreateInspector(targets);
-
-        static IEnumerable WaitUntilDisplay(HelpBox helpBox, DisplayStyle expected, float timeoutSeconds = 2f) =>
-            ObjectReferenceValidationTestHelper.WaitUntilDisplay(helpBox, expected, timeoutSeconds);
-
-        HelpBox FindHelpBox(string text) => helper.FindHelpBox(text);
     }
 }
