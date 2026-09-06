@@ -204,6 +204,20 @@
         "message": "警告に表示するテキスト"
       }
     },
+    "RequiredListLengthAttribute": {
+      "summary": "配列またはリストの要素数が指定した範囲外のときにエラーを表示します。",
+      "notes": [
+        {
+          "type": "NOTE",
+          "body": "この属性はエラーを表示するだけです。コレクションのサイズ変更やInspector上の追加・削除の無効化は行いません。"
+        }
+      ],
+      "params": {
+        "length": "必要な要素数（この数と一致する必要があります）",
+        "min": "最小要素数。下限なしの場合は`null`",
+        "max": "最大要素数。上限なしの場合は`null`"
+      }
+    },
     "SceneObjectsOnlyAttribute": {
       "summary": "参照がシーンオブジェクトではなくプロジェクトアセットである場合にエラーを表示します。UnityEngine.Object参照、およびそれらの配列・リストに対応します。",
       "notes": [

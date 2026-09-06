@@ -43,6 +43,12 @@ namespace Alchemy.Tests.EditorUI.PlayModeInEditor
             public GameObject value;
         }
 
+        sealed class RequiredListLengthTarget
+        {
+            [RequiredListLength(1)]
+            public int[] value;
+        }
+
         sealed class PrivateFieldTarget
         {
             int privateValue;
@@ -101,6 +107,14 @@ namespace Alchemy.Tests.EditorUI.PlayModeInEditor
         public void Test_ChildObjectsOnlyAttributeDoesNotRequireSerializedProperty()
         {
             var target = new ChildObjectsOnlyTarget();
+
+            Assert.DoesNotThrow(() => new ClassField(target, target.GetType(), "Target"));
+        }
+
+        [Test]
+        public void Test_RequiredListLengthAttributeDoesNotRequireSerializedProperty()
+        {
+            var target = new RequiredListLengthTarget();
 
             Assert.DoesNotThrow(() => new ClassField(target, target.GetType(), "Target"));
         }

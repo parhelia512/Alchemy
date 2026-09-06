@@ -269,6 +269,75 @@ namespace Alchemy.Inspector
     }
 
     /// <summary>
+    /// Displays an error when the array or list length is outside the required range.
+    /// </summary>
+    /// <alchemy-attr-note type="NOTE">
+    /// This attribute only reports errors. It does not change the collection size or disable Add/Remove in the Inspector.
+    /// </alchemy-attr-note>
+    /// <alchemy-attr-category>Validation</alchemy-attr-category>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class RequiredListLengthAttribute : Attribute
+    {
+        /// <param name="length">Exact number of elements required.</param>
+        public RequiredListLengthAttribute(int length)
+        {
+            ApplyBounds(length, length, parseFailed: false);
+        }
+
+        /// <param name="min">Minimum number of elements, or <c>null</c> for no minimum.</param>
+        /// <param name="max">Maximum number of elements, or <c>null</c> for no maximum.</param>
+        public RequiredListLengthAttribute(object min, object max)
+        {
+            var parsedMin = TryParseBound(min, out var minValue);
+            var parsedMax = TryParseBound(max, out var maxValue);
+            ApplyBounds(minValue, maxValue, parseFailed: !parsedMin || !parsedMax);
+        }
+
+        /// <summary>
+        /// Minimum number of elements, or null if unbounded.
+        /// </summary>
+        public int? Min { get; private set; }
+
+        /// <summary>
+        /// Maximum number of elements, or null if unbounded.
+        /// </summary>
+        public int? Max { get; private set; }
+
+        /// <summary>
+        /// Text to display in the error.
+        /// </summary>
+        public string Message { get; set; }
+
+        void ApplyBounds(int? min, int? max, bool parseFailed)
+        {
+            if (parseFailed ||
+                (min is null && max is null) ||
+                min < 0 ||
+                max < 0 ||
+                (min.HasValue && max.HasValue && min > max))
+            {
+                return;
+            }
+
+            Min = min;
+            Max = max;
+        }
+
+        static bool TryParseBound(object value, out int? result)
+        {
+            result = null;
+            if (value is null) return true;
+            if (value is int i)
+            {
+                result = i;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Displays a warning when the specified validation condition evaluates to false.
     /// </summary>
     /// <alchemy-attr-category>Validation</alchemy-attr-category>
