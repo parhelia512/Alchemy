@@ -1,13 +1,11 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using Alchemy.Editor;
 using Alchemy.Inspector;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
@@ -16,22 +14,13 @@ namespace Alchemy.Tests.EditorUI.EditMode
 {
     public class ChildObjectsOnlyDrawerTest
     {
-        sealed class TestWindow : EditorWindow { }
-
-        readonly List<UnityEngine.Object> created = new List<UnityEngine.Object>();
-        EditorWindow window;
-        UnityEditor.Editor editor;
-        VisualElement inspectorRoot;
+        readonly ObjectReferenceValidationTestHelper helper = new ObjectReferenceValidationTestHelper();
 
         static string ChildErrorMessage =>
             ChildObjectsOnlyValidation.DefaultErrorMessage("Child", true);
 
         [TearDown]
-        public void TearDown()
-        {
-            CloseInspector();
-            DestroyCreated();
-        }
+        public void TearDown() => helper.Dispose();
 
         [Test]
         public void Attribute_ExposesMessageAndIncludeSelfDefaults()
@@ -377,7 +366,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
             Assert.That(host.child, Is.SameAs(unrelated));
 
             var child = CreateChild(host, "Child");
-            var serializedObject = editor.serializedObject;
+            var serializedObject = helper.Editor.serializedObject;
             serializedObject.FindProperty("child").objectReferenceValue = child;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(host.child, Is.SameAs(child));
@@ -394,7 +383,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
             foreach (var wait in WaitUntilDisplay(customHelpBox, DisplayStyle.Flex))
                 yield return wait;
 
-            var unsupportedHelpBoxes = inspectorRoot.Query<HelpBox>().ToList()
+            var unsupportedHelpBoxes = helper.InspectorRoot.Query<HelpBox>().ToList()
                 .Where(box => box.messageType == HelpBoxMessageType.Warning)
                 .ToList();
             Assert.That(unsupportedHelpBoxes, Is.Not.Empty);
@@ -436,11 +425,11 @@ namespace Alchemy.Tests.EditorUI.EditMode
             foreach (var wait in WaitUntilDisplay(helpBox, DisplayStyle.None))
                 yield return wait;
 
-            window.rootVisualElement.Remove(inspectorRoot);
+            helper.Window.rootVisualElement.Remove(helper.InspectorRoot);
             moving.transform.SetParent(siblingRoot.transform);
             Assert.That(helpBox.style.display.value, Is.EqualTo(DisplayStyle.None));
 
-            window.rootVisualElement.Add(inspectorRoot);
+            helper.Window.rootVisualElement.Add(helper.InspectorRoot);
             foreach (var wait in WaitUntilDisplay(helpBox, DisplayStyle.Flex))
                 yield return wait;
 
@@ -474,7 +463,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
             var asset = Track(ScriptableObject.CreateInstance<ChildObjectsOnlyScriptable>());
             CreateInspector(asset);
 
-            var helpBox = inspectorRoot.Query<HelpBox>().ToList()
+            var helpBox = helper.InspectorRoot.Query<HelpBox>().ToList()
                 .FirstOrDefault(box => box.messageType == HelpBoxMessageType.Warning);
             Assert.That(helpBox, Is.Not.Null);
             Assert.That(helpBox.text, Does.Contain("ChildObjectsOnly can only be used"));
@@ -483,15 +472,17 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Validation_RejectsPrefabAssetsAndAcceptsPrefabStageDescendants()
         {
-            var path = $"Assets/_AlchemyChildObjectsOnly_{Guid.NewGuid():N}.prefab";
             GameObject contents = null;
             var openedStage = false;
+            string path = null;
             try
             {
                 var host = CreateHost();
                 CreateChild(host, "Child");
-                Assert.That(PrefabUtility.SaveAsPrefabAsset(host.gameObject, path), Is.Not.Null);
-                DestroyCreated();
+                var prefab = helper.CreatePrefabAsset(host.gameObject, "_AlchemyChildObjectsOnly");
+                path = AssetDatabase.GetAssetPath(prefab);
+                Assert.That(prefab, Is.Not.Null);
+                helper.DestroyCreated();
 
                 var instance = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 var assetHost = instance.GetComponent<ChildObjectsOnlyHost>();
@@ -525,114 +516,39 @@ namespace Alchemy.Tests.EditorUI.EditMode
                     StageUtility.GoToMainStage();
                 if (contents != null)
                     PrefabUtility.UnloadPrefabContents(contents);
-                AssetDatabase.DeleteAsset(path);
             }
         }
 
         ChildObjectsOnlyHost CreateHost(string name = "Owner")
         {
-            var owner = new GameObject(name);
-            var host = owner.AddComponent<ChildObjectsOnlyHost>();
+            var host = helper.CreateHost<ChildObjectsOnlyHost>(name);
             host.nested = new ChildObjectsOnlyHost.Nested();
-            Track(owner);
             return host;
         }
 
         (ChildObjectsOnlyHost hostA, ChildObjectsOnlyHost hostB) TwoHosts() =>
             (CreateHost("OwnerA"), CreateHost("OwnerB"));
 
-        GameObject CreateChild(Component parent, string name) => CreateChild(parent.gameObject, name);
+        GameObject CreateChild(Component parent, string name) => helper.CreateChild(parent, name);
 
-        GameObject CreateChild(GameObject parent, string name)
-        {
-            var child = new GameObject(name);
-            child.transform.SetParent(parent.transform);
-            return Track(child);
-        }
+        GameObject CreateChild(GameObject parent, string name) => helper.CreateChild(parent, name);
 
-        GameObject Create(string name) => Track(new GameObject(name));
+        GameObject Create(string name) => helper.Create(name);
 
-        T Track<T>(T obj) where T : UnityEngine.Object
-        {
-            created.Add(obj);
-            return obj;
-        }
+        T Track<T>(T obj) where T : UnityEngine.Object => helper.Track(obj);
 
-        static SerializedObject Multi(params UnityEngine.Object[] targets) => new SerializedObject(targets);
+        static SerializedObject Multi(params UnityEngine.Object[] targets) =>
+            ObjectReferenceValidationTestHelper.Multi(targets);
 
-        void ShowInspector(params UnityEngine.Object[] targets)
-        {
-            CreateInspector(targets);
-            window = ScriptableObject.CreateInstance<TestWindow>();
-            window.position = new Rect(0f, 0f, 640f, 480f);
-            window.rootVisualElement.Add(inspectorRoot);
-            window.Show();
-        }
+        void ShowInspector(params UnityEngine.Object[] targets) => helper.ShowInspector(targets);
 
-        void CreateInspector(params UnityEngine.Object[] targets)
-        {
-            editor = UnityEditor.Editor.CreateEditor(targets);
-            inspectorRoot = editor.CreateInspectorGUI();
-        }
+        void CreateInspector(params UnityEngine.Object[] targets) => helper.CreateInspector(targets);
 
-        void CloseInspector()
-        {
-            if (inspectorRoot != null)
-            {
-                inspectorRoot.Unbind();
-                inspectorRoot.RemoveFromHierarchy();
-                inspectorRoot = null;
-            }
+        void CloseInspector() => helper.CloseInspector();
 
-            if (window != null)
-            {
-                window.Close();
-                if (window != null)
-                    UnityEngine.Object.DestroyImmediate(window);
-                window = null;
-            }
+        static IEnumerable WaitUntilDisplay(HelpBox helpBox, DisplayStyle expected, float timeoutSeconds = 2f) =>
+            ObjectReferenceValidationTestHelper.WaitUntilDisplay(helpBox, expected, timeoutSeconds);
 
-            if (editor != null)
-            {
-                UnityEngine.Object.DestroyImmediate(editor);
-                editor = null;
-            }
-        }
-
-        void DestroyCreated()
-        {
-            for (var i = created.Count - 1; i >= 0; i--)
-            {
-                if (created[i] != null)
-                    UnityEngine.Object.DestroyImmediate(created[i]);
-            }
-            created.Clear();
-        }
-
-        static IEnumerable WaitUntilDisplay(HelpBox helpBox, DisplayStyle expected, float timeoutSeconds = 2f)
-        {
-            var deadline = EditorApplication.timeSinceStartup + timeoutSeconds;
-            while (helpBox.style.display.value != expected)
-            {
-                if (EditorApplication.timeSinceStartup >= deadline)
-                {
-                    Assert.That(
-                        helpBox.style.display.value,
-                        Is.EqualTo(expected),
-                        $"HelpBox display did not become {expected} within {timeoutSeconds} seconds.");
-                    yield break;
-                }
-
-                yield return null;
-            }
-        }
-
-        HelpBox FindHelpBox(string text)
-        {
-            var helpBox = inspectorRoot.Query<HelpBox>().ToList()
-                .FirstOrDefault(box => box.text == text);
-            Assert.That(helpBox, Is.Not.Null, $"Expected HelpBox '{text}'.");
-            return helpBox;
-        }
+        HelpBox FindHelpBox(string text) => helper.FindHelpBox(text);
     }
 }
