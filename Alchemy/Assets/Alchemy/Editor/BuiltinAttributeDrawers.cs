@@ -286,6 +286,108 @@ namespace Alchemy.Editor.Drawers
         }
     }
 
+    [CustomAttributeDrawer(typeof(SceneObjectsOnlyAttribute))]
+    public sealed class SceneObjectsOnlyDrawer : TrackSerializedObjectAttributeDrawer
+    {
+        const string UnsupportedMessage =
+            "SceneObjectsOnly can only be used on UnityEngine.Object references, including arrays and lists of those types.";
+
+        HelpBox helpBox;
+        bool subscribed;
+
+        public override void OnCreateElement()
+        {
+            if (SerializedProperty == null) return;
+
+            if (!SceneObjectsOnlyValidation.IsSupportedProperty(SerializedProperty))
+            {
+                helpBox = new HelpBox(UnsupportedMessage, HelpBoxMessageType.Warning);
+                InsertHelpBox();
+                return;
+            }
+
+            var attribute = (SceneObjectsOnlyAttribute)Attribute;
+            var message = attribute.Message ?? SceneObjectsOnlyValidation.DefaultErrorMessage(
+                SerializedProperty.displayName);
+            helpBox = new HelpBox(message, HelpBoxMessageType.Error);
+            InsertHelpBox();
+
+            TargetElement.RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
+            TargetElement.RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
+            if (TargetElement.panel != null)
+            {
+                Subscribe();
+            }
+
+            TargetElement.TrackPropertyValue(SerializedProperty, _ => OnInspectorChanged());
+            base.OnCreateElement();
+        }
+
+        protected override void OnInspectorChanged()
+        {
+            if (helpBox == null) return;
+            if (!SceneObjectsOnlyValidation.TryAccessProperty(SerializedProperty, out _, out _))
+            {
+                return;
+            }
+
+            var valid = SceneObjectsOnlyValidation.IsSerializedPropertyValid(SerializedProperty);
+            helpBox.style.display = valid ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+
+        void InsertHelpBox()
+        {
+            var parent = TargetElement.parent;
+            parent.Insert(parent.IndexOf(TargetElement), helpBox);
+        }
+
+        void OnAttachToPanel(AttachToPanelEvent evt)
+        {
+            Subscribe();
+            OnInspectorChanged();
+        }
+
+        void OnDetachFromPanel(DetachFromPanelEvent evt) => Unsubscribe();
+
+        void OnExternalChange()
+        {
+            if (!SceneObjectsOnlyValidation.TryAccessProperty(SerializedProperty, out var serializedObject, out _))
+            {
+                return;
+            }
+
+            try
+            {
+                if (!serializedObject.hasModifiedProperties)
+                {
+                    serializedObject.UpdateIfRequiredOrScript();
+                }
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            OnInspectorChanged();
+        }
+
+        void Subscribe()
+        {
+            if (subscribed) return;
+            EditorApplication.hierarchyChanged += OnExternalChange;
+            Undo.undoRedoPerformed += OnExternalChange;
+            subscribed = true;
+        }
+
+        void Unsubscribe()
+        {
+            if (!subscribed) return;
+            EditorApplication.hierarchyChanged -= OnExternalChange;
+            Undo.undoRedoPerformed -= OnExternalChange;
+            subscribed = false;
+        }
+    }
+
     [CustomAttributeDrawer(typeof(RequiredAttribute))]
     public sealed class RequiredDrawer : TrackSerializedObjectAttributeDrawer
     {
