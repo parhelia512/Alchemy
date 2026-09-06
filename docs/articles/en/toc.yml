@@ -76,6 +76,8 @@
     href: attributes/child-objects-only.md
   - name: Required
     href: attributes/required.md
+  - name: Scene Objects Only
+    href: attributes/scene-objects-only.md
   - name: Validate Input
     href: attributes/validate-input.md
   - name: Events

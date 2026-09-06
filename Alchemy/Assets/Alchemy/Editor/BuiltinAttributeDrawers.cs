@@ -182,10 +182,50 @@ namespace Alchemy.Editor.Drawers
     }
 
     [CustomAttributeDrawer(typeof(ChildObjectsOnlyAttribute))]
-    public sealed class ChildObjectsOnlyDrawer : TrackSerializedObjectAttributeDrawer
+    public sealed class ChildObjectsOnlyDrawer : ObjectReferenceValidationDrawer
     {
-        const string UnsupportedMessage =
+        protected override string UnsupportedMessage =>
             "ChildObjectsOnly can only be used on GameObject, Component, or UnityEngine.Object references, including arrays and lists of those types, when the Inspector target is a Component or GameObject.";
+
+        protected override bool IsSupportedProperty() =>
+            ChildObjectsOnlyValidation.GetOwnerTransform(SerializedObject) != null &&
+            ChildObjectsOnlyValidation.IsSupportedProperty(SerializedProperty);
+
+        protected override string GetErrorMessage()
+        {
+            var attribute = (ChildObjectsOnlyAttribute)Attribute;
+            return attribute.Message ?? ChildObjectsOnlyValidation.DefaultErrorMessage(
+                SerializedProperty.displayName, attribute.IncludeSelf);
+        }
+
+        protected override bool IsPropertyValid() =>
+            ChildObjectsOnlyValidation.IsSerializedPropertyValid(
+                SerializedProperty, ((ChildObjectsOnlyAttribute)Attribute).IncludeSelf);
+    }
+
+    [CustomAttributeDrawer(typeof(SceneObjectsOnlyAttribute))]
+    public sealed class SceneObjectsOnlyDrawer : ObjectReferenceValidationDrawer
+    {
+        protected override string UnsupportedMessage =>
+            "SceneObjectsOnly can only be used on UnityEngine.Object references, including arrays and lists of those types.";
+
+        protected override bool IsSupportedProperty() =>
+            SceneObjectsOnlyValidation.IsSupportedProperty(SerializedProperty);
+
+        protected override string GetErrorMessage() =>
+            ((SceneObjectsOnlyAttribute)Attribute).Message ??
+            SceneObjectsOnlyValidation.DefaultErrorMessage(SerializedProperty.displayName);
+
+        protected override bool IsPropertyValid() =>
+            SceneObjectsOnlyValidation.IsSerializedPropertyValid(SerializedProperty);
+    }
+
+    public abstract class ObjectReferenceValidationDrawer : TrackSerializedObjectAttributeDrawer
+    {
+        protected abstract string UnsupportedMessage { get; }
+        protected abstract bool IsSupportedProperty();
+        protected abstract string GetErrorMessage();
+        protected abstract bool IsPropertyValid();
 
         HelpBox helpBox;
         bool subscribed;
@@ -194,19 +234,14 @@ namespace Alchemy.Editor.Drawers
         {
             if (SerializedProperty == null) return;
 
-            var owner = ChildObjectsOnlyValidation.GetOwnerTransform(SerializedObject);
-            if (owner == null || !ChildObjectsOnlyValidation.IsSupportedProperty(SerializedProperty))
+            if (!IsSupportedProperty())
             {
                 helpBox = new HelpBox(UnsupportedMessage, HelpBoxMessageType.Warning);
                 InsertHelpBox();
                 return;
             }
 
-            var attribute = (ChildObjectsOnlyAttribute)Attribute;
-            var message = attribute.Message ?? ChildObjectsOnlyValidation.DefaultErrorMessage(
-                SerializedProperty.displayName,
-                attribute.IncludeSelf);
-            helpBox = new HelpBox(message, HelpBoxMessageType.Error);
+            helpBox = new HelpBox(GetErrorMessage(), HelpBoxMessageType.Error);
             InsertHelpBox();
 
             TargetElement.RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
@@ -223,13 +258,12 @@ namespace Alchemy.Editor.Drawers
         protected override void OnInspectorChanged()
         {
             if (helpBox == null) return;
-            if (!ChildObjectsOnlyValidation.TryAccessProperty(SerializedProperty, out _, out _))
+            if (!SerializedObjectReferenceValidation.TryAccessProperty(SerializedProperty, out _, out _))
             {
                 return;
             }
 
-            var attribute = (ChildObjectsOnlyAttribute)Attribute;
-            var valid = ChildObjectsOnlyValidation.IsSerializedPropertyValid(SerializedProperty, attribute.IncludeSelf);
+            var valid = IsPropertyValid();
             helpBox.style.display = valid ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
@@ -249,7 +283,7 @@ namespace Alchemy.Editor.Drawers
 
         void OnExternalChange()
         {
-            if (!ChildObjectsOnlyValidation.TryAccessProperty(SerializedProperty, out var serializedObject, out _))
+            if (!SerializedObjectReferenceValidation.TryAccessProperty(SerializedProperty, out var serializedObject, out _))
             {
                 return;
             }

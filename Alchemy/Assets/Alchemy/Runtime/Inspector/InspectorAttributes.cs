@@ -234,6 +234,25 @@ namespace Alchemy.Inspector
     }
 
     /// <summary>
+    /// Displays an error when the reference is a project asset rather than a scene object. Accepts UnityEngine.Object references, including arrays and lists.
+    /// </summary>
+    /// <alchemy-attr-note type="NOTE">
+    /// Null is allowed, including collection elements. Use <c>Required</c> to require a single reference.
+    /// </alchemy-attr-note>
+    /// <alchemy-attr-category>Validation</alchemy-attr-category>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class SceneObjectsOnlyAttribute : Attribute
+    {
+        public SceneObjectsOnlyAttribute() => Message = null;
+        public SceneObjectsOnlyAttribute(string message) => Message = message;
+
+        /// <summary>
+        /// Text to display in the error.
+        /// </summary>
+        public string Message { get; }
+    }
+
+    /// <summary>
     /// Displays a warning when no object reference is assigned to the field.
     /// </summary>
     /// <alchemy-attr-category>Validation</alchemy-attr-category>
