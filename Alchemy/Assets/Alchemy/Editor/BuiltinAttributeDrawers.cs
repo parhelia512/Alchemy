@@ -344,6 +344,68 @@ namespace Alchemy.Editor.Drawers
         }
     }
 
+    [CustomAttributeDrawer(typeof(RequiredListLengthAttribute))]
+    public sealed class RequiredListLengthDrawer : TrackSerializedObjectAttributeDrawer
+    {
+        HelpBox helpBox;
+
+        public override void OnCreateElement()
+        {
+            if (SerializedProperty == null) return;
+
+            var attribute = (RequiredListLengthAttribute)Attribute;
+            if (!attribute.Min.HasValue && !attribute.Max.HasValue)
+            {
+                helpBox = new HelpBox(
+                    RequiredListLengthValidation.InvalidBoundsMessage,
+                    HelpBoxMessageType.Warning);
+                InsertHelpBox();
+                return;
+            }
+
+            if (!RequiredListLengthValidation.IsSupportedProperty(SerializedProperty))
+            {
+                helpBox = new HelpBox(
+                    RequiredListLengthValidation.UnsupportedMessage,
+                    HelpBoxMessageType.Warning);
+                InsertHelpBox();
+                return;
+            }
+
+            helpBox = new HelpBox(
+                attribute.Message ?? RequiredListLengthValidation.DefaultMessage(
+                    SerializedProperty.displayName,
+                    attribute.Min,
+                    attribute.Max),
+                HelpBoxMessageType.Error);
+            InsertHelpBox();
+            TargetElement.TrackPropertyValue(SerializedProperty, _ => OnInspectorChanged());
+            base.OnCreateElement();
+        }
+
+        protected override void OnInspectorChanged()
+        {
+            if (helpBox == null) return;
+            if (!SerializedObjectReferenceValidation.TryAccessProperty(SerializedProperty, out _, out _))
+            {
+                return;
+            }
+
+            var attribute = (RequiredListLengthAttribute)Attribute;
+            var valid = RequiredListLengthValidation.IsSerializedPropertyValid(
+                SerializedProperty,
+                attribute.Min,
+                attribute.Max);
+            helpBox.style.display = valid ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+
+        void InsertHelpBox()
+        {
+            var parent = TargetElement.parent;
+            parent.Insert(parent.IndexOf(TargetElement), helpBox);
+        }
+    }
+
     [CustomAttributeDrawer(typeof(ValidateInputAttribute))]
     public sealed class ValidateInputDrawer : TrackSerializedObjectAttributeDrawer
     {
