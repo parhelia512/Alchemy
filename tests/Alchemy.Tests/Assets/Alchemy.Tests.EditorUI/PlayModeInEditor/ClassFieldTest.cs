@@ -49,6 +49,20 @@ namespace Alchemy.Tests.EditorUI.PlayModeInEditor
             public int[] value;
         }
 
+        sealed class RequiredInTarget
+        {
+            [RequiredIn(PrefabKind.InstanceInScene)]
+            public GameObject value;
+        }
+
+        [Test]
+        public void Test_RequiredInAttributeDoesNotRequireSerializedProperty()
+        {
+            var target = new RequiredInTarget();
+
+            Assert.DoesNotThrow(() => new ClassField(target, target.GetType(), "Target"));
+        }
+
         sealed class PrivateFieldTarget
         {
             int privateValue;

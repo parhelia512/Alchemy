@@ -218,6 +218,13 @@
         "max": "最大要素数。上限なしの場合は`null`"
       }
     },
+    "RequiredInAttribute": {
+      "summary": "指定した Prefab コンテキストでオブジェクト参照が未割り当ての場合にエラーを表示します。",
+      "params": {
+        "prefabKind": "フィールドを必須にする Prefab コンテキスト",
+        "message": "エラーに表示するテキスト"
+      }
+    },
     "SceneObjectsOnlyAttribute": {
       "summary": "参照がシーンオブジェクトではなくプロジェクトアセットである場合にエラーを表示します。UnityEngine.Object参照、およびそれらの配列・リストに対応します。",
       "notes": [

@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,6 +18,8 @@ namespace Alchemy.Tests.EditorUI.EditMode
 
         readonly List<UnityEngine.Object> created = new List<UnityEngine.Object>();
         readonly List<string> createdAssetPaths = new List<string>();
+        readonly List<GameObject> loadedPrefabContents = new List<GameObject>();
+        bool openedPrefabStage;
 
         public EditorWindow Window { get; private set; }
         public UnityEditor.Editor Editor { get; private set; }
@@ -24,6 +28,8 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public void Dispose()
         {
             CloseInspector();
+            ClosePrefabStage();
+            UnloadPrefabContents();
             DestroyCreated();
             DeleteCreatedAssets();
         }
@@ -47,12 +53,71 @@ namespace Alchemy.Tests.EditorUI.EditMode
 
         public GameObject Create(string name) => Track(new GameObject(name));
 
+        public GameObject CreatePrefabAsset(string name, string prefix = "_AlchemyObjectReference") =>
+            CreatePrefabAsset(Create(name), prefix);
+
         public GameObject CreatePrefabAsset(GameObject source, string prefix = "_AlchemyObjectReference")
         {
             var path = $"Assets/{prefix}_{Guid.NewGuid():N}.prefab";
             var asset = PrefabUtility.SaveAsPrefabAsset(source, path);
             createdAssetPaths.Add(path);
             return asset;
+        }
+
+        public GameObject CreatePrefabVariant(string sourceName, string prefix = "_AlchemyPrefabVariant") =>
+            CreatePrefabVariant(CreatePrefabAsset(sourceName, prefix + "Base"), prefix);
+
+        public GameObject CreatePrefabVariant(GameObject prefabAsset, string prefix = "_AlchemyPrefabVariant")
+        {
+            var instance = InstantiatePrefab(prefabAsset);
+            var path = $"Assets/{prefix}_{Guid.NewGuid():N}.prefab";
+            var variant = PrefabUtility.SaveAsPrefabAsset(instance, path);
+            createdAssetPaths.Add(path);
+            return variant;
+        }
+
+        public GameObject CreateNestedPrefabAsset(string prefix = "_AlchemyNestedPrefab") =>
+            CreateNestedPrefabAsset(CreatePrefabAsset("Inner", prefix + "Inner"), prefix);
+
+        public GameObject CreateNestedPrefabAsset(GameObject innerPrefab, string prefix = "_AlchemyNestedPrefab")
+        {
+            var outer = Create("Outer");
+            InstantiatePrefab(innerPrefab).transform.SetParent(outer.transform);
+            return CreatePrefabAsset(outer, prefix);
+        }
+
+        public GameObject CreateModelPrefabAsset(string prefix = "_AlchemyModel")
+        {
+            var folderName = $"{prefix}_{Guid.NewGuid():N}";
+            var folder = $"Assets/{folderName}";
+            AssetDatabase.CreateFolder("Assets", folderName);
+            createdAssetPaths.Add(folder);
+
+            var path = $"{folder}/Model.obj";
+            File.WriteAllText(path, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+            AssetDatabase.ImportAsset(path);
+
+            var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            Assert.That(model, Is.Not.Null);
+            return model;
+        }
+
+        public GameObject InstantiatePrefab(GameObject prefabAsset) =>
+            Track((GameObject)PrefabUtility.InstantiatePrefab(prefabAsset));
+
+        public GameObject LoadPrefabContents(GameObject prefabAsset)
+        {
+            var contents = PrefabUtility.LoadPrefabContents(AssetDatabase.GetAssetPath(prefabAsset));
+            loadedPrefabContents.Add(contents);
+            return contents;
+        }
+
+        public PrefabStage OpenPrefab(GameObject prefabAsset)
+        {
+            var stage = PrefabStageUtility.OpenPrefab(AssetDatabase.GetAssetPath(prefabAsset));
+            if (stage != null)
+                openedPrefabStage = true;
+            return stage;
         }
 
         public T Track<T>(T obj) where T : UnityEngine.Object
@@ -100,6 +165,25 @@ namespace Alchemy.Tests.EditorUI.EditMode
                 UnityEngine.Object.DestroyImmediate(Editor);
                 Editor = null;
             }
+        }
+
+        void ClosePrefabStage()
+        {
+            if (!openedPrefabStage)
+                return;
+
+            StageUtility.GoToMainStage();
+            openedPrefabStage = false;
+        }
+
+        void UnloadPrefabContents()
+        {
+            for (var i = loadedPrefabContents.Count - 1; i >= 0; i--)
+            {
+                if (loadedPrefabContents[i] != null)
+                    PrefabUtility.UnloadPrefabContents(loadedPrefabContents[i]);
+            }
+            loadedPrefabContents.Clear();
         }
 
         public void DestroyCreated()

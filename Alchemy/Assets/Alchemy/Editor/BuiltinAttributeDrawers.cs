@@ -406,6 +406,36 @@ namespace Alchemy.Editor.Drawers
         }
     }
 
+    [CustomAttributeDrawer(typeof(RequiredInAttribute))]
+    public sealed class RequiredInDrawer : TrackSerializedObjectAttributeDrawer
+    {
+        HelpBox helpBox;
+
+        public override void OnCreateElement()
+        {
+            if (SerializedProperty == null || SerializedProperty.propertyType != SerializedPropertyType.ObjectReference) return;
+
+            var attribute = (RequiredInAttribute)Attribute;
+            var message = attribute.Message ?? ObjectNames.NicifyVariableName(SerializedProperty.displayName) + " is required.";
+            helpBox = new HelpBox(message, HelpBoxMessageType.Error);
+
+            var parent = TargetElement.parent;
+            parent.Insert(parent.IndexOf(TargetElement), helpBox);
+
+            base.OnCreateElement();
+        }
+
+        protected override void OnInspectorChanged()
+        {
+            var attribute = (RequiredInAttribute)Attribute;
+            var currentKind = PrefabKindUtility.GetPrefabKind(SerializedObject.targetObject);
+            var isRequired = (attribute.PrefabKind & currentKind) != 0;
+            var missing = SerializedProperty.objectReferenceValue == null;
+
+            helpBox.style.display = isRequired && missing ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+    }
+
     [CustomAttributeDrawer(typeof(ValidateInputAttribute))]
     public sealed class ValidateInputDrawer : TrackSerializedObjectAttributeDrawer
     {
