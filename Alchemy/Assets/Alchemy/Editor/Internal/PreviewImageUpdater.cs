@@ -53,10 +53,12 @@ namespace Alchemy.Editor
                 attempts = 0;
             }
 
-            if (image.image != null) return;
             if (job != null) return;
-            if (attempts >= maxAttempts) return;
 
+            // Bound each job, but let later Inspector notifications retry or refresh
+            // the same reference. Keep its current image until a replacement is ready.
+            attempts = 0;
+            var completed = false;
             var captured = reference;
             job = scheduler.schedule.Execute(() =>
             {
@@ -69,15 +71,20 @@ namespace Alchemy.Editor
                 if (captured != target) return;
 
                 attempts++;
-                image.image = getPreview(captured);
-                if (image.image != null || attempts >= maxAttempts)
+                var preview = getPreview(captured);
+                if (preview != null)
+                {
+                    image.image = preview;
+                }
+
+                completed = preview != null || attempts >= maxAttempts;
+                if (completed)
                 {
                     job = null;
                 }
             }).Until(() =>
                 image.panel == null
-                || image.image != null
-                || attempts >= maxAttempts
+                || completed
                 || captured != target
             );
         }

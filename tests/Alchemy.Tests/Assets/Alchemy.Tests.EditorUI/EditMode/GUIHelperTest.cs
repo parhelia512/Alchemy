@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Runtime.CompilerServices;
 using Alchemy.Editor;
 using NUnit.Framework;
 #if !UNITY_2022_1_OR_NEWER
@@ -21,19 +22,40 @@ namespace Alchemy.Tests.EditorUI.EditMode
             try
             {
                 GUIHelper.ScheduleAdjustLabelWidth(field);
-                yield return null;
+                var visualTree = field.panel.visualTree;
+                window.position = new Rect(0f, 0f, 800f, 480f);
+                foreach (var wait in EditModeEditorTestUtility.WaitUntil(() =>
+                    Mathf.Abs(visualTree.resolvedStyle.width - 800f) < 1f))
+                    yield return wait;
 
                 var label = field.Q<Label>();
                 Assert.That(label, Is.Not.Null);
+                foreach (var wait in EditModeEditorTestUtility.WaitUntil(() =>
+                    Mathf.Abs(label.resolvedStyle.width - GUIHelper.CalculateLabelWidth(field, visualTree)) < 1f))
+                    yield return wait;
                 Assert.That(label.resolvedStyle.width, Is.GreaterThan(0f));
+                var originalWidth = label.resolvedStyle.width;
 
                 field.RemoveFromHierarchy();
-                yield return null;
+                window.position = new Rect(0f, 0f, 500f, 480f);
+                foreach (var wait in EditModeEditorTestUtility.WaitUntil(() =>
+                    Mathf.Abs(visualTree.resolvedStyle.width - 500f) < 1f))
+                    yield return wait;
 
                 window.rootVisualElement.Add(field);
-                yield return null;
+                foreach (var wait in EditModeEditorTestUtility.WaitUntil(() =>
+                    label.resolvedStyle.width < originalWidth))
+                    yield return wait;
 
-                Assert.That(label.resolvedStyle.width, Is.GreaterThan(0f));
+                Assert.That(label.resolvedStyle.width, Is.LessThan(originalWidth));
+                Assert.That(label.resolvedStyle.width,
+                    Is.EqualTo(GUIHelper.CalculateLabelWidth(field, field.panel.visualTree)).Within(1f));
+
+                window.position = new Rect(0f, 0f, 600f, 480f);
+                foreach (var wait in EditModeEditorTestUtility.WaitUntil(() =>
+                    Mathf.Abs(visualTree.resolvedStyle.width - 600f) < 1f &&
+                    Mathf.Abs(label.resolvedStyle.width - GUIHelper.CalculateLabelWidth(field, visualTree)) < 1f))
+                    yield return wait;
             }
             finally
             {
@@ -45,23 +67,17 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public IEnumerator ScheduleAdjustLabelWidth_DoesNotKeepDetachedElementAlive()
         {
             var window = EditModeEditorTestUtility.ShowInWindow(new VisualElement());
-            WeakReference weak;
             try
             {
+                var weak = CreateDetachedField(window.rootVisualElement);
+                foreach (var wait in EditModeEditorTestUtility.WaitUntil(() =>
                 {
-                    var field = new IntegerField("Value") { value = 1 };
-                    window.rootVisualElement.Add(field);
-                    GUIHelper.ScheduleAdjustLabelWidth(field);
-                    yield return null;
-                    weak = new WeakReference(field);
-                    field.RemoveFromHierarchy();
-                }
-
-                yield return null;
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                yield return null;
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    return !weak.IsAlive;
+                }))
+                    yield return wait;
 
                 Assert.That(weak.IsAlive, Is.False);
             }
@@ -69,6 +85,16 @@ namespace Alchemy.Tests.EditorUI.EditMode
             {
                 UnityEngine.Object.DestroyImmediate(window);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static WeakReference CreateDetachedField(VisualElement root)
+        {
+            var field = new IntegerField("Value") { value = 1 };
+            root.Add(field);
+            GUIHelper.ScheduleAdjustLabelWidth(field);
+            field.RemoveFromHierarchy();
+            return new WeakReference(field);
         }
     }
 }
