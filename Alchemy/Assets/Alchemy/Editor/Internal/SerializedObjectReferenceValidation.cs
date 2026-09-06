@@ -237,7 +237,7 @@ namespace Alchemy.Editor
             return true;
         }
 
-        static bool ArraySizesDiffer(SerializedProperty arrayProperty)
+        public static bool ArraySizesDiffer(SerializedProperty arrayProperty)
         {
             var sizeProperty = arrayProperty.FindPropertyRelative("Array.size");
             if (sizeProperty == null)

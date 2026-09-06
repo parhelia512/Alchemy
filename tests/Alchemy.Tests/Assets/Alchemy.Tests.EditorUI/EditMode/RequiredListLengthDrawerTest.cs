@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -127,6 +128,63 @@ namespace Alchemy.Tests.EditorUI.EditMode
                 Is.False);
             Assert.That(host.atMost, Has.Length.EqualTo(3));
             Assert.That(host.atLeast, Is.Empty);
+        }
+
+        [Test]
+        public void Validation_PendingSingleObjectSizeChangeDoesNotApply()
+        {
+            var host = CreateHost();
+            host.exact = Array.Empty<int>();
+
+            using var serializedObject = new SerializedObject(host);
+            var exact = serializedObject.FindProperty("exact");
+            exact.arraySize = 1;
+
+            Assert.That(
+                RequiredListLengthValidation.IsSerializedPropertyValid(exact, 1, 1),
+                Is.True);
+            Assert.That(serializedObject.hasModifiedProperties, Is.True);
+            Assert.That(host.exact, Is.Empty);
+        }
+
+        [Test]
+        public void Validation_PendingUniformSizeUsesSharedArraySizeWhenElementsDiffer()
+        {
+            var hostA = CreateHost("OwnerA");
+            var hostB = CreateHost("OwnerB");
+            hostA.exact = new[] { 1, 2 };
+            hostB.exact = new[] { 3, 4 };
+
+            using var serializedObject = ObjectReferenceValidationTestHelper.Multi(hostA, hostB);
+            var exact = serializedObject.FindProperty("exact");
+            Assert.That(
+                RequiredListLengthValidation.IsSerializedPropertyValid(exact, 1, 1),
+                Is.False);
+
+            exact.arraySize = 1;
+            Assert.That(
+                RequiredListLengthValidation.IsSerializedPropertyValid(exact, 1, 1),
+                Is.True);
+            Assert.That(serializedObject.hasModifiedProperties, Is.True);
+            Assert.That(hostA.exact, Has.Length.EqualTo(2));
+            Assert.That(hostB.exact, Has.Length.EqualTo(2));
+        }
+
+        [Test]
+        public void Validation_MixedSizesValidateEachAppliedTarget()
+        {
+            var hostA = CreateHost("OwnerA");
+            var hostB = CreateHost("OwnerB");
+            hostA.exact = new[] { 1 };
+            hostB.exact = Array.Empty<int>();
+
+            using var serializedObject = ObjectReferenceValidationTestHelper.Multi(hostA, hostB);
+            var exact = serializedObject.FindProperty("exact");
+            Assert.That(
+                RequiredListLengthValidation.IsSerializedPropertyValid(exact, 1, 1),
+                Is.False);
+            Assert.That(hostA.exact, Has.Length.EqualTo(1));
+            Assert.That(hostB.exact, Is.Empty);
         }
 
         [UnityTest]

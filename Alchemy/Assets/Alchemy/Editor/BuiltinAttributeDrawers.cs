@@ -379,13 +379,14 @@ namespace Alchemy.Editor.Drawers
                     attribute.Max),
                 HelpBoxMessageType.Error);
             InsertHelpBox();
+            TargetElement.TrackPropertyValue(SerializedProperty, _ => OnInspectorChanged());
             base.OnCreateElement();
         }
 
         protected override void OnInspectorChanged()
         {
             if (helpBox == null) return;
-            if (!RequiredListLengthValidation.TryGetArraySize(SerializedProperty, out _))
+            if (!SerializedObjectReferenceValidation.TryAccessProperty(SerializedProperty, out _, out _))
             {
                 return;
             }

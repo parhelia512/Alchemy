@@ -27,37 +27,43 @@ namespace Alchemy.Editor
 
         public static bool IsSerializedPropertyValid(SerializedProperty property, int? min, int? max)
         {
-            if (!TryGetArraySize(property, out var size))
+            if (!SerializedObjectReferenceValidation.TryAccessProperty(
+                    property, out var serializedObject, out var path))
+            {
+                return false;
+            }
+
+            if (!TryGetArraySize(property, out var sharedSize))
             {
                 return false;
             }
 
             try
             {
-                if (!property.hasMultipleDifferentValues)
+                if (!SerializedObjectReferenceValidation.ArraySizesDiffer(property))
                 {
-                    return IsValid(size, min, max);
+                    return IsValid(sharedSize, min, max);
                 }
             }
             catch (Exception)
             {
-                return IsValid(size, min, max);
+                return IsValid(sharedSize, min, max);
             }
 
-            var serializedObject = property.serializedObject;
-            if (serializedObject?.targetObjects == null || serializedObject.targetObjects.Length <= 1)
+            var targets = serializedObject.targetObjects;
+            if (targets == null || targets.Length <= 1)
             {
-                return IsValid(size, min, max);
+                return IsValid(sharedSize, min, max);
             }
 
-            foreach (var target in serializedObject.targetObjects)
+            foreach (var target in targets)
             {
-                if (target == null) continue;
+                if (target == null) return false;
 
-                using var individual = new SerializedObject(target);
-                var individualProperty = individual.FindProperty(property.propertyPath);
-                if (!TryGetArraySize(individualProperty, out var individualSize) ||
-                    !IsValid(individualSize, min, max))
+                using var isolated = new SerializedObject(target);
+                var isolatedProperty = isolated.FindProperty(path);
+                if (!TryGetArraySize(isolatedProperty, out var isolatedSize) ||
+                    !IsValid(isolatedSize, min, max))
                 {
                     return false;
                 }
