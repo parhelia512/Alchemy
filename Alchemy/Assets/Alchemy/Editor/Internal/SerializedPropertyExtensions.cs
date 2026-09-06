@@ -179,26 +179,21 @@ namespace Alchemy.Editor
 
         static object GetElementAtOrDefault(object arrayOrListObj, int index)
         {
+            if (arrayOrListObj is IList valueList && index >= 0 && index < valueList.Count)
+            {
+                return valueList[index];
+            }
+
             if (arrayOrListObj is IEnumerable<object> referenceEnumerable)
             {
                 return referenceEnumerable.ElementAtOrDefault(index);
             }
 
-            if (arrayOrListObj is IList valueList)
+            if (arrayOrListObj is IList fallbackList)
             {
-                object result;
-                if (index < 0 || index >= valueList.Count)
-                {
-                    Type listType = valueList.GetType();
-                    Type elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
-                    result = Activator.CreateInstance(elementType);
-                }
-                else
-                {
-                    result = valueList[index];
-                }
-
-                return result;
+                Type listType = fallbackList.GetType();
+                Type elementType = listType.IsArray ? listType.GetElementType() : listType.GetGenericArguments()[0];
+                return Activator.CreateInstance(elementType);
             }
 
             throw new ArgumentException($"Can't parse {arrayOrListObj.GetType()} as Array or List");

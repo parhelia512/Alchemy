@@ -388,6 +388,7 @@ namespace Alchemy.Editor.Drawers
     public sealed class PreviewDrawer : TrackSerializedObjectAttributeDrawer
     {
         private Image image;
+        private PreviewImageUpdater previewUpdater;
         private const float BorderWidth = 1f;
         private static readonly Color borderColor = new Color(0f, 0f, 0f, 0.3f);
 
@@ -427,23 +428,14 @@ namespace Alchemy.Editor.Drawers
 
             var parent = TargetElement.parent;
             parent.Insert(parent.IndexOf(TargetElement) + 1, image);
+            previewUpdater = new PreviewImageUpdater(TargetElement, image);
 
             base.OnCreateElement();
         }
 
         protected override void OnInspectorChanged()
         {
-            if (SerializedProperty.objectReferenceValue == null)
-            {
-                image.image = null;
-                return;
-            }
-
-            TargetElement.schedule.Execute(() =>
-            {
-                var texture = AssetPreview.GetAssetPreview(SerializedProperty.objectReferenceValue);
-                image.image = texture;
-            }).Until(() => image.image != null);
+            previewUpdater?.Update(SerializedProperty.objectReferenceValue);
         }
     }
 
