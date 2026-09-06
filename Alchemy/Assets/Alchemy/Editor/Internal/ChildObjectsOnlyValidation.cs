@@ -70,7 +70,11 @@ namespace Alchemy.Editor
         public static bool IsSerializedPropertyValid(SerializedProperty property, bool includeSelf) =>
             SerializedObjectReferenceValidation.IsSerializedPropertyValid(
                 property,
-                (value, target) => IsValid(value, GetOwnerTransform(target), includeSelf));
+                target =>
+                {
+                    var owner = GetOwnerTransform(target);
+                    return value => IsValid(value, owner, includeSelf);
+                });
 
         public static bool IsPropertyValid(SerializedProperty property, Transform owner, bool includeSelf) =>
             SerializedObjectReferenceValidation.IsPropertyValid(

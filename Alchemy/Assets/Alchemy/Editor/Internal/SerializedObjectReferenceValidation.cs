@@ -6,8 +6,6 @@ namespace Alchemy.Editor
 {
     internal static class SerializedObjectReferenceValidation
     {
-        public delegate bool ObjectValueValidator(UnityEngine.Object value, UnityEngine.Object target);
-
         public static bool IsSupportedProperty(SerializedProperty property, Func<Type, bool> isSupportedType)
         {
             if (property == null || isSupportedType == null) return false;
@@ -36,9 +34,11 @@ namespace Alchemy.Editor
             }
         }
 
-        public static bool IsSerializedPropertyValid(SerializedProperty property, ObjectValueValidator isValid)
+        public static bool IsSerializedPropertyValid(
+            SerializedProperty property,
+            Func<UnityEngine.Object, Func<UnityEngine.Object, bool>> createValidator)
         {
-            if (isValid == null) return false;
+            if (createValidator == null) return false;
             if (!TryAccessProperty(property, out var serializedObject, out var path))
             {
                 return false;
@@ -77,8 +77,7 @@ namespace Alchemy.Editor
                     if (!IsTargetPropertyValid(
                             property,
                             isolatedProperty,
-                            target,
-                            isValid,
+                            createValidator(target),
                             hasPendingEdits))
                     {
                         return false;
@@ -170,13 +169,12 @@ namespace Alchemy.Editor
         static bool IsTargetPropertyValid(
             SerializedProperty sharedProperty,
             SerializedProperty isolatedProperty,
-            UnityEngine.Object target,
-            ObjectValueValidator isValid,
+            Func<UnityEngine.Object, bool> isValid,
             bool hasPendingEdits)
         {
             if (!hasPendingEdits)
             {
-                return IsPropertyValid(isolatedProperty, value => isValid(value, target));
+                return IsPropertyValid(isolatedProperty, isValid);
             }
 
             try
@@ -186,17 +184,17 @@ namespace Alchemy.Editor
                     var value = sharedProperty.hasMultipleDifferentValues
                         ? isolatedProperty.objectReferenceValue
                         : sharedProperty.objectReferenceValue;
-                    return isValid(value, target);
+                    return isValid(value);
                 }
 
                 if (sharedProperty.isArray && sharedProperty.propertyType != SerializedPropertyType.String)
                 {
                     if (!sharedProperty.hasMultipleDifferentValues)
                     {
-                        return IsPropertyValid(sharedProperty, value => isValid(value, target));
+                        return IsPropertyValid(sharedProperty, isValid);
                     }
 
-                    return IsPendingArrayValid(sharedProperty, isolatedProperty, target, isValid);
+                    return IsPendingArrayValid(sharedProperty, isolatedProperty, isValid);
                 }
             }
             catch (Exception)
@@ -210,8 +208,7 @@ namespace Alchemy.Editor
         static bool IsPendingArrayValid(
             SerializedProperty sharedProperty,
             SerializedProperty isolatedProperty,
-            UnityEngine.Object target,
-            ObjectValueValidator isValid)
+            Func<UnityEngine.Object, bool> isValid)
         {
             var sharedSize = sharedProperty.arraySize;
             var isolatedSize = isolatedProperty.arraySize;
@@ -231,7 +228,7 @@ namespace Alchemy.Editor
                     return false;
                 }
 
-                if (!isValid(value, target))
+                if (!isValid(value))
                 {
                     return false;
                 }

@@ -219,7 +219,8 @@ internal static class UnityTest
         var command = mode == TestMode.EditMode
             ? "Alchemy.Tests.TestCommands.RunAllEditModeTests"
             : "Alchemy.Tests.TestCommands.RunAllPlayModeTests";
-        var arguments = CreateTestArguments(mode);
+        // Both modes include UI tests that need a graphics device for EditorWindow.Show().
+        var arguments = new List<string> { "-batchmode" };
         arguments.AddRange(
         [
             "-automated",
@@ -281,19 +282,6 @@ internal static class UnityTest
             "-logFile",
             logPath,
         ];
-    }
-
-    private static List<string> CreateTestArguments(TestMode mode)
-    {
-        var arguments = new List<string> { "-batchmode" };
-        // The editor-only tests are safe to run headlessly; PlayMode also hosts
-        // the UI tests and must initialize a graphics device for EditorWindow.Show().
-        if (mode == TestMode.EditMode)
-        {
-            arguments.Add("-nographics");
-        }
-
-        return arguments;
     }
 
     private static string CreateLogDirectory(UnityProject project)

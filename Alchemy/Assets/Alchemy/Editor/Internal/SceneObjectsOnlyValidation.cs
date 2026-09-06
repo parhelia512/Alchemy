@@ -21,7 +21,7 @@ namespace Alchemy.Editor
         public static bool IsSerializedPropertyValid(SerializedProperty property) =>
             SerializedObjectReferenceValidation.IsSerializedPropertyValid(
                 property,
-                (value, _) => IsValid(value));
+                _ => IsValid);
 
         public static bool IsPropertyValid(SerializedProperty property) =>
             SerializedObjectReferenceValidation.IsPropertyValid(property, IsValid);
