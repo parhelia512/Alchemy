@@ -210,6 +210,30 @@ namespace Alchemy.Inspector
     }
 
     /// <summary>
+    /// Displays an error for references outside the owner's GameObject hierarchy. Accepts GameObjects and Components, including arrays and lists.
+    /// </summary>
+    /// <alchemy-attr-note type="NOTE">
+    /// Self is allowed by default; set <c>IncludeSelf = false</c> for descendants only. Null is allowed, including collection elements. Use <c>Required</c> to require a single reference.
+    /// </alchemy-attr-note>
+    /// <alchemy-attr-category>Validation</alchemy-attr-category>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class ChildObjectsOnlyAttribute : Attribute
+    {
+        public ChildObjectsOnlyAttribute() => Message = null;
+        public ChildObjectsOnlyAttribute(string message) => Message = message;
+
+        /// <summary>
+        /// Text to display in the error.
+        /// </summary>
+        public string Message { get; }
+
+        /// <summary>
+        /// When true (the default), the owner GameObject and components on it are valid. When false, only descendants are accepted.
+        /// </summary>
+        public bool IncludeSelf { get; set; } = true;
+    }
+
+    /// <summary>
     /// Displays a warning when no object reference is assigned to the field.
     /// </summary>
     /// <alchemy-attr-category>Validation</alchemy-attr-category>

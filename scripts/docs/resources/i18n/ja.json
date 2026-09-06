@@ -19,6 +19,18 @@
     "ButtonAttribute": {
       "summary": "メソッドを実行可能なボタンをInspectorに表示します。メソッドが引数を持つ場合には、引数を入力可能なフィールドが追加されます。"
     },
+    "ChildObjectsOnlyAttribute": {
+      "summary": "自身のGameObject階層外への参照にエラーを表示します。GameObjectとComponent、およびそれらの配列・リストに対応します。",
+      "notes": [
+        {
+          "type": "NOTE",
+          "body": "デフォルトでは自身も許容します。子孫のみに制限するには`IncludeSelf = false`を指定します。コレクション要素を含め、nullは許容されます。単一の参照を必須にするには`Required`を併用します。"
+        }
+      ],
+      "params": {
+        "message": "エラーに表示するテキスト"
+      }
+    },
     "DisableAlchemyEditorAttribute": {
       "summary": "対象のクラスのAlchemyEditorを無効化し、デフォルトのInspectorを使用して描画します。フィールドにこの属性を追加した場合、そのフィールドのみをデフォルトのPropertyFieldを用いて描画するように変更します。"
     },
