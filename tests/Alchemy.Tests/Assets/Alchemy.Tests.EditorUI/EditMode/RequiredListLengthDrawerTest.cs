@@ -4,10 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Alchemy.Editor;
 using Alchemy.Inspector;
-using Alchemy.Tests.EditorUI;
 using NUnit.Framework;
 using UnityEditor;
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
@@ -16,17 +14,13 @@ namespace Alchemy.Tests.EditorUI.EditMode
 {
     public class RequiredListLengthDrawerTest
     {
-        readonly List<UnityEngine.Object> created = new List<UnityEngine.Object>();
-        EditorWindow window;
-        UnityEditor.Editor editor;
-        VisualElement inspectorRoot;
+        readonly ObjectReferenceValidationTestHelper helper = new ObjectReferenceValidationTestHelper();
+
+        static string ExactErrorMessage =>
+            RequiredListLengthValidation.DefaultMessage(nameof(RequiredListLengthHost.exact), 1, 1);
 
         [TearDown]
-        public void TearDown()
-        {
-            CloseInspector();
-            DestroyCreated();
-        }
+        public void TearDown() => helper.Dispose();
 
         [Test]
         public void Attribute_ExposesExactAndRangeBounds()
@@ -39,7 +33,6 @@ namespace Alchemy.Tests.EditorUI.EditMode
 
             Assert.That(exact.Min, Is.EqualTo(1));
             Assert.That(exact.Max, Is.EqualTo(1));
-
             Assert.That(range.Min, Is.EqualTo(0));
             Assert.That(range.Max, Is.EqualTo(10));
             Assert.That(maxOnly.Min, Is.Null);
@@ -150,8 +143,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Validation_PendingUniformSizeUsesSharedArraySizeWhenElementsDiffer()
         {
-            var hostA = CreateHost("OwnerA");
-            var hostB = CreateHost("OwnerB");
+            var (hostA, hostB) = TwoHosts();
             hostA.exact = new[] { 1, 2 };
             hostB.exact = new[] { 3, 4 };
 
@@ -173,8 +165,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Validation_MixedSizesValidateEachAppliedTarget()
         {
-            var hostA = CreateHost("OwnerA");
-            var hostB = CreateHost("OwnerB");
+            var (hostA, hostB) = TwoHosts();
             hostA.exact = new[] { 1 };
             hostB.exact = new[] { 1, 2 };
 
@@ -191,8 +182,7 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Validation_MultiObjectLargeArraysDoNotTrustCappedArraySize()
         {
-            var hostA = CreateHost("OwnerA");
-            var hostB = CreateHost("OwnerB");
+            var (hostA, hostB) = TwoHosts();
             hostA.exact = new int[100];
             hostB.exact = new int[100];
 
@@ -214,46 +204,46 @@ namespace Alchemy.Tests.EditorUI.EditMode
         public IEnumerator Drawer_ShowsErrorHelpBoxWhilePreservingInvalidSize()
         {
             var host = CreateHost();
-            host.exact = new int[0];
-            host.custom = new int[0];
-            ShowInspector(host);
+            host.exact = Array.Empty<int>();
+            host.custom = Array.Empty<int>();
+            helper.ShowInspector(host);
             yield return null;
 
-            var exactHelpBox = FindHelpBox("Exact must contain exactly 1 element.");
-            foreach (var wait in WaitUntilDisplay(exactHelpBox, DisplayStyle.Flex))
+            var exactHelpBox = helper.FindHelpBox(ExactErrorMessage);
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(exactHelpBox, DisplayStyle.Flex))
                 yield return wait;
             Assert.That(host.exact, Is.Empty);
 
-            var serializedObject = editor.serializedObject;
-            serializedObject.FindProperty("exact").arraySize = 1;
+            var serializedObject = helper.Editor.serializedObject;
+            serializedObject.FindProperty(nameof(RequiredListLengthHost.exact)).arraySize = 1;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(host.exact, Has.Length.EqualTo(1));
-            foreach (var wait in WaitUntilDisplay(exactHelpBox, DisplayStyle.None))
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(exactHelpBox, DisplayStyle.None))
                 yield return wait;
 
-            serializedObject.FindProperty("exact").arraySize = 2;
+            serializedObject.FindProperty(nameof(RequiredListLengthHost.exact)).arraySize = 2;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(host.exact, Has.Length.EqualTo(2));
-            foreach (var wait in WaitUntilDisplay(exactHelpBox, DisplayStyle.Flex))
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(exactHelpBox, DisplayStyle.Flex))
                 yield return wait;
 
-            var customHelpBox = FindHelpBox("Must have exactly one item.");
-            foreach (var wait in WaitUntilDisplay(customHelpBox, DisplayStyle.Flex))
+            var customHelpBox = helper.FindHelpBox("Must have exactly one item.");
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(customHelpBox, DisplayStyle.Flex))
                 yield return wait;
 
-            serializedObject.FindProperty("custom").arraySize = 1;
+            serializedObject.FindProperty(nameof(RequiredListLengthHost.custom)).arraySize = 1;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(host.custom, Has.Length.EqualTo(1));
-            foreach (var wait in WaitUntilDisplay(customHelpBox, DisplayStyle.None))
+            foreach (var wait in ObjectReferenceValidationTestHelper.WaitUntilDisplay(customHelpBox, DisplayStyle.None))
                 yield return wait;
 
-            var unsupportedHelpBoxes = inspectorRoot.Query<HelpBox>().ToList()
+            var unsupportedHelpBoxes = helper.InspectorRoot.Query<HelpBox>().ToList()
                 .Where(box => box.messageType == HelpBoxMessageType.Warning)
                 .Where(box => box.text.Contains("RequiredListLength can only be used"))
                 .ToList();
             Assert.That(unsupportedHelpBoxes, Is.Not.Empty);
 
-            var invalidBoundsHelpBoxes = inspectorRoot.Query<HelpBox>().ToList()
+            var invalidBoundsHelpBoxes = helper.InspectorRoot.Query<HelpBox>().ToList()
                 .Where(box => box.text == RequiredListLengthValidation.InvalidBoundsMessage)
                 .ToList();
             Assert.That(invalidBoundsHelpBoxes, Is.Not.Empty);
@@ -262,92 +252,22 @@ namespace Alchemy.Tests.EditorUI.EditMode
         [Test]
         public void Drawer_ShowsErrorForMixedMultiObjectSelection()
         {
-            var host1 = CreateHost("OwnerA");
-            var host2 = CreateHost("OwnerB");
-            host1.exact = new int[1];
-            host2.exact = new int[0];
-            ShowInspector(host1, host2);
+            var (hostA, hostB) = TwoHosts();
+            hostA.exact = new int[1];
+            hostB.exact = Array.Empty<int>();
+            helper.ShowInspector(hostA, hostB);
 
             Assert.That(
-                FindHelpBox("Exact must contain exactly 1 element.").style.display.value,
+                helper.FindHelpBox(ExactErrorMessage).style.display.value,
                 Is.EqualTo(DisplayStyle.Flex));
-            Assert.That(host1.exact, Has.Length.EqualTo(1));
-            Assert.That(host2.exact, Is.Empty);
+            Assert.That(hostA.exact, Has.Length.EqualTo(1));
+            Assert.That(hostB.exact, Is.Empty);
         }
 
-        RequiredListLengthHost CreateHost(string name = "Owner")
-        {
-            var owner = Track(new GameObject(name));
-            return owner.AddComponent<RequiredListLengthHost>();
-        }
+        RequiredListLengthHost CreateHost(string name = "Owner") =>
+            helper.CreateHost<RequiredListLengthHost>(name);
 
-        T Track<T>(T obj) where T : UnityEngine.Object
-        {
-            created.Add(obj);
-            return obj;
-        }
-
-        void ShowInspector(params UnityEngine.Object[] targets)
-        {
-            CreateInspector(targets);
-            window = EditModeEditorTestUtility.ShowInWindow(inspectorRoot);
-        }
-
-        void CreateInspector(params UnityEngine.Object[] targets)
-        {
-            editor = UnityEditor.Editor.CreateEditor(targets);
-            inspectorRoot = editor.CreateInspectorGUI();
-        }
-
-        void CloseInspector()
-        {
-            if (inspectorRoot != null)
-            {
-                inspectorRoot.Unbind();
-                inspectorRoot.RemoveFromHierarchy();
-                inspectorRoot = null;
-            }
-
-            if (window != null)
-            {
-                window.Close();
-                if (window != null)
-                    UnityEngine.Object.DestroyImmediate(window);
-                window = null;
-            }
-
-            if (editor != null)
-            {
-                UnityEngine.Object.DestroyImmediate(editor);
-                editor = null;
-            }
-        }
-
-        void DestroyCreated()
-        {
-            for (var i = created.Count - 1; i >= 0; i--)
-            {
-                if (created[i] != null)
-                    UnityEngine.Object.DestroyImmediate(created[i]);
-            }
-            created.Clear();
-        }
-
-        static IEnumerable WaitUntilDisplay(HelpBox helpBox, DisplayStyle expected)
-        {
-            foreach (var wait in EditModeEditorTestUtility.WaitUntil(
-                         () => helpBox.style.display.value == expected))
-            {
-                yield return wait;
-            }
-        }
-
-        HelpBox FindHelpBox(string text)
-        {
-            var helpBox = inspectorRoot.Query<HelpBox>().ToList()
-                .FirstOrDefault(box => box.text == text);
-            Assert.That(helpBox, Is.Not.Null, $"Expected HelpBox '{text}'.");
-            return helpBox;
-        }
+        (RequiredListLengthHost hostA, RequiredListLengthHost hostB) TwoHosts() =>
+            (CreateHost("OwnerA"), CreateHost("OwnerB"));
     }
 }
