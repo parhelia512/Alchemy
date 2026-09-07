@@ -5,6 +5,8 @@ namespace Alchemy.Inspector
     /// <summary>
     /// Prefab contexts used to decide when attributes such as <see cref="RequiredInAttribute"/> apply.
     /// Primitive values identify a single state; the remaining members are composite flags for matching.
+    /// Classification uses Unity's current prefab connections. Scene objects lose those connections
+    /// in Play Mode and are classified as <see cref="NonPrefabInstance"/>.
     /// </summary>
     [Flags]
     public enum PrefabKind

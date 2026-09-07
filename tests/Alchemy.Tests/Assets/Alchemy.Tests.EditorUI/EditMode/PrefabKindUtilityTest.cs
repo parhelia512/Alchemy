@@ -150,6 +150,28 @@ namespace Alchemy.Tests.EditorUI.EditMode
             AssertKind(variantStage.prefabContentsRoot, PrefabKind.Variant);
         }
 
+        [Test]
+        public void GetPrefabKind_VariantContainingItsOwnBase_DistinguishesNestedInstance()
+        {
+            var baseAsset = helper.CreatePrefabAsset("Base", "_AlchemySameBase");
+            var variantSource = helper.InstantiatePrefab(baseAsset);
+            helper.InstantiatePrefab(baseAsset).transform.SetParent(variantSource.transform);
+            var variant = helper.CreatePrefabAsset(variantSource, "_AlchemySameBaseVariant");
+
+            AssertKind(variant, PrefabKind.Variant);
+            AssertKind(FirstChild(variant), PrefabKind.InstanceInPrefab);
+            AssertKind(FirstChild(variant).transform, PrefabKind.InstanceInPrefab);
+
+            var contents = helper.LoadPrefabContents(variant);
+            AssertKind(contents, PrefabKind.Variant);
+            AssertKind(FirstChild(contents), PrefabKind.InstanceInPrefab);
+
+            var stage = helper.OpenPrefab(variant);
+            Assert.That(stage, Is.Not.Null);
+            AssertKind(stage.prefabContentsRoot, PrefabKind.Variant);
+            AssertKind(FirstChild(stage.prefabContentsRoot), PrefabKind.InstanceInPrefab);
+        }
+
         static GameObject FirstChild(GameObject parent) => parent.transform.GetChild(0).gameObject;
 
         static void AssertKind(UnityEngine.Object target, PrefabKind expected) =>

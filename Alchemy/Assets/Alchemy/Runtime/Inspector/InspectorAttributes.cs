@@ -340,6 +340,11 @@ namespace Alchemy.Inspector
     /// <summary>
     /// Displays an error when no object reference is assigned and the inspected object is in one of the specified prefab contexts.
     /// </summary>
+    /// <remarks>
+    /// Multi-object inspection reports an error if any selected object requires its reference and is missing it.
+    /// Contexts use Unity's current prefab connections; scene objects in Play Mode are classified as
+    /// <see cref="PrefabKind.NonPrefabInstance"/> because Unity does not retain their prefab-instance connections.
+    /// </remarks>
     /// <alchemy-attr-category>Validation</alchemy-attr-category>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public sealed class RequiredInAttribute : Attribute

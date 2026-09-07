@@ -78,6 +78,41 @@ namespace Alchemy.Tests.EditorUI.EditMode
                 yield return wait;
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Drawer_ValidatesEverySelectedContext(bool reverse)
+        {
+            var scene = CreateSceneHost();
+            var instance = CreateInstanceHost("_AlchemyRequiredInMultiContext");
+            helper.ShowInspector(reverse ? instance : scene, reverse ? scene : instance);
+
+            AssertRequiredInHelpBoxes(DisplayStyle.Flex, DisplayStyle.None, DisplayStyle.Flex);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Drawer_ReportsMissingReferenceOnAnySelectedTarget(bool reverse)
+        {
+            var assigned = CreateSceneHost();
+            assigned.always = assigned.gameObject;
+            var missing = CreateSceneHost();
+            helper.ShowInspector(reverse ? missing : assigned, reverse ? assigned : missing);
+
+            Assert.That(helper.FindHelpBox(AlwaysErrorMessage).style.display.value, Is.EqualTo(DisplayStyle.Flex));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Drawer_DoesNotCombineContextAndMissingValueFromDifferentTargets(bool reverse)
+        {
+            var scene = CreateSceneHost();
+            var instance = CreateInstanceHost("_AlchemyRequiredInMultiValid");
+            instance.instanceInScene = instance.gameObject;
+            helper.ShowInspector(reverse ? instance : scene, reverse ? scene : instance);
+
+            Assert.That(helper.FindHelpBox(InstanceInSceneErrorMessage).style.display.value, Is.EqualTo(DisplayStyle.None));
+        }
+
         RequiredInHost CreateSceneHost() => helper.CreateHost<RequiredInHost>();
 
         RequiredInHost CreateAssetHost(string prefix) =>

@@ -18,7 +18,7 @@ namespace Alchemy.Editor
             {
                 if (TryGetPreviewPrefabAssetPath(gameObject, out var previewAssetPath))
                 {
-                    return IsNestedInstanceInPreview(gameObject, previewAssetPath)
+                    return IsNestedInstanceInPreview(gameObject)
                         ? PrefabKind.InstanceInPrefab
                         : GetAssetKindFromPath(previewAssetPath);
                 }
@@ -64,31 +64,17 @@ namespace Alchemy.Editor
             }
 
             var nearest = PrefabUtility.GetNearestPrefabInstanceRoot(gameObject);
-            var outermost = PrefabUtility.GetOutermostPrefabInstanceRoot(gameObject);
-            return nearest == null || outermost == null || nearest == outermost;
+            return nearest == null || nearest == gameObject.transform.root.gameObject;
         }
 
-        static bool IsNestedInstanceInPreview(GameObject gameObject, string previewAssetPath)
+        static bool IsNestedInstanceInPreview(GameObject gameObject)
         {
-            var nearestPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(gameObject);
-            if (string.IsNullOrEmpty(nearestPath))
-            {
-                return true;
-            }
-
-            if (nearestPath == previewAssetPath)
-            {
-                return false;
-            }
-
-            var previewAsset = AssetDatabase.LoadAssetAtPath<GameObject>(previewAssetPath);
-            if (previewAsset == null)
-            {
-                return true;
-            }
-
-            var baseAsset = PrefabUtility.GetCorrespondingObjectFromSource(previewAsset);
-            return baseAsset == null || AssetDatabase.GetAssetPath(baseAsset) != nearestPath;
+            var stage = PrefabStageUtility.GetPrefabStage(gameObject);
+            var root = stage != null ? stage.prefabContentsRoot : gameObject.transform.root.gameObject;
+            var nearest = PrefabUtility.GetNearestPrefabInstanceRoot(gameObject);
+            // Asset paths also match when a variant contains another instance of its base.
+            // The contents root, not asset identity, distinguishes those two instances.
+            return nearest != null && nearest != root;
         }
 
         static bool IsInstanceInPrefab(GameObject gameObject)

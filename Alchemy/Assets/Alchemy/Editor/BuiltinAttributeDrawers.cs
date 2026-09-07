@@ -428,11 +428,15 @@ namespace Alchemy.Editor.Drawers
         protected override void OnInspectorChanged()
         {
             var attribute = (RequiredInAttribute)Attribute;
-            var currentKind = PrefabKindUtility.GetPrefabKind(SerializedObject.targetObject);
-            var isRequired = (attribute.PrefabKind & currentKind) != 0;
-            var missing = SerializedProperty.objectReferenceValue == null;
+            var valid = SerializedObjectReferenceValidation.IsSerializedPropertyValid(
+                SerializedProperty,
+                target =>
+                {
+                    var isRequired = (attribute.PrefabKind & PrefabKindUtility.GetPrefabKind(target)) != 0;
+                    return value => !isRequired || value != null;
+                });
 
-            helpBox.style.display = isRequired && missing ? DisplayStyle.Flex : DisplayStyle.None;
+            helpBox.style.display = valid ? DisplayStyle.None : DisplayStyle.Flex;
         }
     }
 
