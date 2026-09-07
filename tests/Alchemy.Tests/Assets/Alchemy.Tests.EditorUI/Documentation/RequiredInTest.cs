@@ -12,11 +12,38 @@ namespace Alchemy.Tests.EditorUI
         public int __docCaptureStart;
 
         #region document
+        [RequiredIn(PrefabKind.None)]
+        [SerializeField] GameObject none;
+
+        [RequiredIn(PrefabKind.InstanceInPrefab)]
+        [SerializeField] GameObject instanceInPrefab;
+
         [RequiredIn(PrefabKind.InstanceInScene)]
-        public GameObject Target;
+        [SerializeField] GameObject instanceInScene;
+
+        [RequiredIn(PrefabKind.Regular)]
+        [SerializeField] GameObject regular;
+
+        [RequiredIn(PrefabKind.Variant)]
+        [SerializeField] GameObject variant;
+
+        [RequiredIn(PrefabKind.NonPrefabInstance)]
+        [SerializeField] GameObject nonPrefabInstance;
+
+        [RequiredIn(PrefabKind.PrefabInstance)]
+        [SerializeField] GameObject prefabInstance;
+
+        [RequiredIn(PrefabKind.PrefabAsset)]
+        [SerializeField] GameObject prefabAsset;
+
+        [RequiredIn(PrefabKind.PrefabInstanceAndNonPrefabInstance)]
+        [SerializeField] GameObject prefabInstanceAndNonPrefabInstance;
+
+        [RequiredIn(PrefabKind.All)]
+        [SerializeField] GameObject all;
 
         [RequiredIn(PrefabKind.PrefabAsset, "EventManager is required.")]
-        public GameObject EventManager;
+        [SerializeField] GameObject eventManager;
         #endregion
 
         [Order(int.MaxValue)]
