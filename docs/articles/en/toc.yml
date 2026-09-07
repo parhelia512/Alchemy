@@ -78,6 +78,8 @@
     href: attributes/required.md
   - name: Required List Length
     href: attributes/required-list-length.md
+  - name: Required In
+    href: attributes/required-in.md
   - name: Scene Objects Only
     href: attributes/scene-objects-only.md
   - name: Validate Input
